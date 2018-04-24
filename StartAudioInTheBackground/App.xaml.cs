@@ -125,9 +125,9 @@ namespace StartAudioInTheBackground
             bool result = false;
             try
             {
-                var smtc = SystemMediaTransportControls.GetForCurrentView();
-                smtc.IsPlayEnabled = true;
-                smtc.IsPauseEnabled = true;
+                //var smtc = SystemMediaTransportControls.GetForCurrentView();
+                //smtc.IsPlayEnabled = true;
+                //smtc.IsPauseEnabled = true;
 
                 if (m_localMediaBinder == null)
                 {

@@ -20,12 +20,17 @@
         </uap:DefaultTile>
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+      <Extensions>
+        <uap:Extension Category="windows.appService">
+          <uap:AppService Name="com.stammen.backgroundaudio" />
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
   <Capabilities>
     <Capability Name="internetClient" />
     <rescap:Capability Name="extendedExecutionBackgroundAudio" />
-    <rescap:Capability Name="extendedBackgroundTaskTime" />
+    <rescap:Capability Name="extendedExecutionUnconstrained" />
     <DeviceCapability Name="microphone" />
   </Capabilities>
 </Package>

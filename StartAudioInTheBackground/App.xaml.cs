@@ -25,6 +25,7 @@ using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using Utils;
 
 namespace StartAudioInTheBackground
 {
@@ -33,17 +34,13 @@ namespace StartAudioInTheBackground
     /// </summary>
     sealed partial class App : Application
     {
-        private SuspendingDeferral suspendDeferral = null;
-        private ExtendedExecutionSession session = null;
-        private ExtendedExecutionForegroundSession mediaSession = null;
-        private BackgroundTaskDeferral deferral = null;
+        private SuspendingDeferral m_suspendDeferral = null;
+        private ExtendedExecutionSession m_session = null;
+        private ExtendedExecutionForegroundSession m_mediaSession = null;
+        private BackgroundTaskDeferral m_deferral = null;
         private bool startedInbackground = false;
         private Audio.AudioOutput m_audioOutput;
         private Audio.AudioInput m_audioInput;
-        private MediaPlayer m_localMediaPlayer = null;
-        private MediaBinder m_localMediaBinder = null;
-        private MediaSource m_localMediaSource = null;
-        private Deferral m_deferral = null;
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -59,40 +56,40 @@ namespace StartAudioInTheBackground
         {
             var name = args.TaskInstance.Task.Name;
 
-            ShowToast("OnBackgroundActivated: " + name);
+            Toasts.ShowToast("OnBackgroundActivated: " + name);
+
+            StopRecording();
+
+            if (m_deferral != null)
+            {
+                m_deferral.Complete();
+                m_deferral = null;
+            }
 
             if (name == "userAwayTrigger")
             {
-                ShowToast("userAwayTrigger: Audio stopped");
-                StopRecording();
-                if(deferral != null)
-                {
-                    deferral.Complete();
-                    deferral = null;
-                }
                 return;
             }
 
             startedInbackground = true;
             base.OnBackgroundActivated(args);
-            deferral = args.TaskInstance.GetDeferral();
+            m_deferral = args.TaskInstance.GetDeferral();
             args.TaskInstance.Canceled += TaskInstance_Canceled;
 
-            mediaSession = new ExtendedExecutionForegroundSession();
-            mediaSession.Reason = ExtendedExecutionForegroundReason.BackgroundAudio;
-            mediaSession.Revoked += MediaSession_Revoked;
-            var result = await mediaSession.RequestExtensionAsync();
+            m_mediaSession = new ExtendedExecutionForegroundSession();
+            m_mediaSession.Reason = ExtendedExecutionForegroundReason.BackgroundAudio;
+            m_mediaSession.Revoked += MediaSession_Revoked;
+            var result = await m_mediaSession.RequestExtensionAsync();
             if (result != ExtendedExecutionForegroundResult.Allowed)
-                ShowToast("Audio EE denied");
+            {
+                Toasts.ShowToast("Audio EE denied");
+            }
 
             await StartRecording();
-            ShowToast("userPresentTrigger: Audio started");
         }
 
         public async Task StartRecording()
         {
-            //BookNetworkForBackground();
-
             StopRecording();
 
             m_audioOutput = new Audio.AudioOutput();
@@ -102,11 +99,8 @@ namespace StartAudioInTheBackground
             await m_audioInput.Start();
         }
 
-
         public void StopRecording()
         {
-            //BookNetworkForBackground();
-
             if (m_audioInput != null)
             {
                 m_audioInput.Stop();
@@ -119,85 +113,26 @@ namespace StartAudioInTheBackground
                 m_audioOutput = null;
             }
         }
-
-        public bool BookNetworkForBackground()
-        {
-            bool result = false;
-            try
-            {
-                //var smtc = SystemMediaTransportControls.GetForCurrentView();
-                //smtc.IsPlayEnabled = true;
-                //smtc.IsPauseEnabled = true;
-
-                if (m_localMediaBinder == null)
-                {
-                    m_localMediaBinder = new Windows.Media.Core.MediaBinder();
-                    if (m_localMediaBinder != null)
-                    {
-                        m_localMediaBinder.Binding += LocalMediaBinder_Binding;
-                    }
-                }
-                if (m_localMediaSource == null)
-                {
-                    m_localMediaSource = Windows.Media.Core.MediaSource.CreateFromMediaBinder(m_localMediaBinder);
-                }
-                if (m_localMediaPlayer == null)
-                {
-                    m_localMediaPlayer = new Windows.Media.Playback.MediaPlayer();
-                    if (m_localMediaPlayer != null)
-                    {
-                        m_localMediaPlayer.CommandManager.IsEnabled = false;
-                        m_localMediaPlayer.Source = m_localMediaSource;
-                        result = true;
-                        Debug.WriteLine("Booking network for Background task successful");
-                        return result;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Exception while booking network for Background task: Exception: " + ex.Message);
-            }
-            Debug.WriteLine("Booking network for Background task failed");
-            return result;
-        }
-
-        // Method used to keep the network on while the application is in background
-        private void LocalMediaBinder_Binding(Windows.Media.Core.MediaBinder sender, Windows.Media.Core.MediaBindingEventArgs args)
-        {
-            m_deferral = args.GetDeferral();
-            Debug.WriteLine("Booking network for Background task running...");
-        }
-
+ 
         private void OnAudioInput(NAudio.Wave.IWaveBuffer data)
         {
-            m_audioOutput.Send(data.ByteBuffer);
+            if(m_audioOutput != null)
+            {
+                m_audioOutput.Send(data.ByteBuffer);
+            }
         }
 
         private void TaskInstance_Canceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
         {
             StopRecording();
-            deferral.Complete();
-            ShowToast("TaskInstance_Canceled");
+            m_deferral.Complete();
+            ///Toasts.ShowToast("TaskInstance_Canceled");
         }
 
         private void MediaSession_Revoked(object sender, ExtendedExecutionForegroundRevokedEventArgs args)
         {
             StopRecording();
-            ShowToast("Audio EE revoked");
-        }
-
-        private void ShowToast(string message)
-        {
-            ToastTemplateType toastTemplate = ToastTemplateType.ToastText02;
-            XmlDocument toastXml = ToastNotificationManager.GetTemplateContent(toastTemplate);
-
-            XmlNodeList toastTextElements = toastXml.GetElementsByTagName("text");
-            toastTextElements[0].AppendChild(toastXml.CreateTextNode("UpdateTask"));
-            toastTextElements[1].AppendChild(toastXml.CreateTextNode(message));
-
-            ToastNotification toast = new ToastNotification(toastXml);
-            ToastNotificationManager.CreateToastNotifier().Show(toast);
+            //Toasts.ShowToast("Audio EE revoked");
         }
 
         /// <summary>
@@ -261,29 +196,19 @@ namespace StartAudioInTheBackground
         /// <param name="e">Details about the suspend request.</param>
         private async void OnSuspending(object sender, SuspendingEventArgs e)
         {
-            suspendDeferral = e.SuspendingOperation.GetDeferral();
-            if (!startedInbackground)
-            {
-                suspendDeferral.Complete();
-                ShowToast("Exiting ...");
-                return;
-            }
-            session = new ExtendedExecutionSession();
-            session.Reason = ExtendedExecutionReason.SavingData;
-            session.Revoked += Session_Revoked;
-            session.Description = "";
-
-            ExtendedExecutionResult result = await session.RequestExtensionAsync();
-            if (result != ExtendedExecutionResult.Allowed)
-            {
-                ShowToast("SavingData EE denied");
-                suspendDeferral.Complete();
-            }
+#if true
+            //Toasts.ShowToast("OnSuspending");
+            m_suspendDeferral = e.SuspendingOperation.GetDeferral();
+            var appTrigger = new ApplicationTrigger();
+            var requestStatus = await Windows.ApplicationModel.Background.BackgroundExecutionManager.RequestAccessAsync();
+            await Utils.BackGroundTask.TriggerApplicationBackgroundTask("applicationBackgroundTask");
+            m_suspendDeferral.Complete();
+#endif
         }
 
         private void Session_Revoked(object sender, ExtendedExecutionRevokedEventArgs args)
         {
-            ShowToast("SavingData EE revoked");
+            //Toasts.ShowToast("SavingData EE revoked");
         }
     }
 }

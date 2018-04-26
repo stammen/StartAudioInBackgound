@@ -38,42 +38,15 @@ namespace StartAudioInTheBackground
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-            UnregisterBackgroundTasks();
-            RegisterBackgroundTask(UserPresentTaskName, SystemTriggerType.UserPresent);
-            RegisterBackgroundTask(UserAwayTaskName, SystemTriggerType.UserAway);
-            RegisterBackgroundTask(SessionConnectedTaskName, SystemTriggerType.SessionConnected);
+            bool permissionGained = await Speech.AudioCapturePermissions.RequestMicrophonePermission();
 
-            var app = Application.Current as App;
-            await app.StartRecording();
+            Utils.BackGroundTask.RegisterSystemBackgroundTask(UserPresentTaskName, SystemTriggerType.UserPresent);
+            Utils.BackGroundTask.RegisterSystemBackgroundTask(UserAwayTaskName, SystemTriggerType.UserAway);
+            Utils.BackGroundTask.RegisterSystemBackgroundTask(SessionConnectedTaskName, SystemTriggerType.SessionConnected);
+            await Utils.BackGroundTask.TriggerApplicationBackgroundTask("applicationBackgroundTask");
 
-            //MediaPlayer player = new MediaPlayer();
-            //player.AutoPlay = true;
-            //player.Source = MediaSource.CreateFromUri(new Uri("http://live-aacplus-64.kexp.org/kexp64.aac"));
+            //var app = Application.Current as App;
+            //await app.StartRecording();
         }
-
-
-        private void RegisterBackgroundTask(string name, SystemTriggerType trigger)
-        {
-            var requestTask = BackgroundExecutionManager.RequestAccessAsync();
-            var builder = new BackgroundTaskBuilder();
-            builder.Name = name;
-            //builder.TaskEntryPoint = TimezoneTriggerTaskEntryPoint;
-            builder.SetTrigger(new SystemTrigger(trigger, false));
-            var task = builder.Register();
-        }
-
-        private void UnregisterBackgroundTasks()
-        {
-            var count = BackgroundTaskRegistration.AllTasks.Count;
-            foreach (var task in BackgroundTaskRegistration.AllTasks)
-            {
-                Debug.WriteLine(task.Value.Name);
-                if (task.Value.Name == UserPresentTaskName || task.Value.Name == UserAwayTaskName || task.Value.Name == SessionConnectedTaskName || task.Value.Name == "timezoneTrigger")
-                {
-                    task.Value.Unregister(true);
-                }
-            }
-        }
-
     }
 }

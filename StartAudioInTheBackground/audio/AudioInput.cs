@@ -10,13 +10,16 @@
 //*********************************************************
 
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Devices.Enumeration;
 using Windows.Media;
 using Windows.Media.Audio;
 using Windows.Media.Capture;
+using Windows.Media.Devices;
 using Windows.Media.Core;
 using Windows.Media.MediaProperties;
 using Windows.Media.Render;
@@ -40,6 +43,7 @@ namespace Audio
         private AudioDeviceInputNode m_deviceInputNode;
         private AudioFrameOutputNode m_frameOutputNode;
         private readonly Mutex m_waveBufferMutex = new Mutex();
+        private readonly Mutex m_mutex = new Mutex();
         private readonly List<IWaveBuffer> m_waveBuffers = new List<IWaveBuffer>();
 
         public event AudioAudioInputHandler OnAudioInput;
@@ -51,12 +55,14 @@ namespace Audio
 
         public void Stop()
         {
+            m_waveBufferMutex.WaitOne();
             if (m_audioGraph != null)
             {
                 m_audioGraph.Stop();
                 m_audioGraph.Dispose();
                 m_audioGraph = null;
             }
+            m_waveBufferMutex.ReleaseMutex();
         }
 
         private IWaveBuffer GetWaveBuffer(uint size)
@@ -101,36 +107,55 @@ namespace Audio
 
         public async Task Start()
         {
-            var pcmEncoding = AudioEncodingProperties.CreatePcm(16000, 1, 16);
+            try
+            {
+                m_mutex.WaitOne();
 
-            // Construct the audio graph
-            var result = await AudioGraph.CreateAsync(
-                new AudioGraphSettings(AudioRenderCategory.Speech)
+                DeviceInformationCollection devices = await DeviceInformation.FindAllAsync(MediaDevice.GetAudioCaptureSelector());
+                while (devices.Count == 0)
                 {
-                    DesiredRenderDeviceAudioProcessing = AudioProcessing.Raw,
-                    AudioRenderCategory = AudioRenderCategory.Speech,
-                    EncodingProperties = pcmEncoding
-                });
+                    await Task.Delay(2000);
+                    devices = await DeviceInformation.FindAllAsync(MediaDevice.GetAudioCaptureSelector());
+                }
 
-            if (result.Status != AudioGraphCreationStatus.Success)
+                var pcmEncoding = AudioEncodingProperties.CreatePcm(16000, 1, 16);
+
+                // Construct the audio graph
+                var result = await AudioGraph.CreateAsync(
+                    new AudioGraphSettings(AudioRenderCategory.Speech)
+                    {
+                        DesiredRenderDeviceAudioProcessing = AudioProcessing.Raw,
+                        AudioRenderCategory = AudioRenderCategory.Speech,
+                        EncodingProperties = pcmEncoding
+                    });
+
+                if (result.Status != AudioGraphCreationStatus.Success)
+                {
+                    throw new Exception("AudioGraph creation error: " + result.Status);
+                }
+
+                m_audioGraph = result.Graph;
+
+                m_frameOutputNode = m_audioGraph.CreateFrameOutputNode(pcmEncoding);
+
+                var inputResult = await m_audioGraph.CreateDeviceInputNodeAsync(MediaCategory.Speech, pcmEncoding);
+                if (inputResult.Status != AudioDeviceNodeCreationStatus.Success)
+                {
+                    throw new Exception("AudioGraph CreateDeviceInputNodeAsync error: " + inputResult.Status);
+                }
+
+                m_deviceInputNode = inputResult.DeviceInputNode;
+                m_deviceInputNode.AddOutgoingConnection(m_frameOutputNode);
+                m_audioGraph.QuantumStarted += node_QuantumStarted;
+                m_audioGraph.Start();
+
+            }
+            catch(Exception ex)
             {
-                throw new Exception("AudioGraph creation error: " + result.Status);
+                Utils.Toasts.ShowToast("AudioInput Start Exception: " + ex.Message);
             }
 
-            m_audioGraph = result.Graph;
-
-            m_frameOutputNode = m_audioGraph.CreateFrameOutputNode(pcmEncoding);
-
-            var inputResult = await m_audioGraph.CreateDeviceInputNodeAsync(MediaCategory.Speech, pcmEncoding);
-            if (inputResult.Status != AudioDeviceNodeCreationStatus.Success)
-            {
-                throw new Exception("AudioGraph CreateDeviceInputNodeAsync error: " + inputResult.Status);
-            }
-
-            m_deviceInputNode = inputResult.DeviceInputNode;
-            m_deviceInputNode.AddOutgoingConnection(m_frameOutputNode);
-            m_audioGraph.QuantumStarted += node_QuantumStarted;
-            m_audioGraph.Start();
+            m_mutex.ReleaseMutex();
         }
 
         private unsafe void node_QuantumStarted(AudioGraph graph, object args)

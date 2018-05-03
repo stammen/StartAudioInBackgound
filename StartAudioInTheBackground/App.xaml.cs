@@ -77,7 +77,7 @@ namespace StartAudioInTheBackground
             args.TaskInstance.Canceled += TaskInstance_Canceled;
 
             m_mediaSession = new ExtendedExecutionForegroundSession();
-            m_mediaSession.Reason = ExtendedExecutionForegroundReason.BackgroundAudio;
+            m_mediaSession.Reason = ExtendedExecutionForegroundReason.Unconstrained;
             m_mediaSession.Revoked += MediaSession_Revoked;
             var result = await m_mediaSession.RequestExtensionAsync();
             if (result != ExtendedExecutionForegroundResult.Allowed)
@@ -196,14 +196,12 @@ namespace StartAudioInTheBackground
         /// <param name="e">Details about the suspend request.</param>
         private async void OnSuspending(object sender, SuspendingEventArgs e)
         {
-#if true
             //Toasts.ShowToast("OnSuspending");
             m_suspendDeferral = e.SuspendingOperation.GetDeferral();
             var appTrigger = new ApplicationTrigger();
             var requestStatus = await Windows.ApplicationModel.Background.BackgroundExecutionManager.RequestAccessAsync();
             await Utils.BackGroundTask.TriggerApplicationBackgroundTask("applicationBackgroundTask");
             m_suspendDeferral.Complete();
-#endif
         }
 
         private void Session_Revoked(object sender, ExtendedExecutionRevokedEventArgs args)

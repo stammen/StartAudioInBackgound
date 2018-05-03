@@ -29,8 +29,8 @@
   </Applications>
   <Capabilities>
     <Capability Name="internetClient" />
-    <rescap:Capability Name="extendedExecutionBackgroundAudio" />
     <rescap:Capability Name="extendedExecutionUnconstrained" />
+    <rescap:Capability Name="extendedBackgroundTaskTime" />
     <DeviceCapability Name="microphone" />
   </Capabilities>
 </Package>

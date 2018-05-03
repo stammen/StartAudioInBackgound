@@ -31,7 +31,7 @@ This sample demonstrates how to record and playback audio from a background task
 
 * Put the computer to sleep and then wake the computer. The app should continue to record and play audio when the system is awake.
 
-* Restart the computer. After you login to your account, The app should start to record and play audio.
+* Restart the computer. After you login to your account, the app should start to record and play audio.
 
 
 

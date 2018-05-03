@@ -44,9 +44,6 @@ namespace StartAudioInTheBackground
             Utils.BackGroundTask.RegisterSystemBackgroundTask(UserAwayTaskName, SystemTriggerType.UserAway);
             Utils.BackGroundTask.RegisterSystemBackgroundTask(SessionConnectedTaskName, SystemTriggerType.SessionConnected);
             await Utils.BackGroundTask.TriggerApplicationBackgroundTask("applicationBackgroundTask");
-
-            //var app = Application.Current as App;
-            //await app.StartRecording();
         }
     }
 }

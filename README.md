@@ -1,8 +1,8 @@
-# Start Audio Recording and Playback in a UWP app
+# Start Audio Recording and Playback from a Background Task in a UWP app
 
 **Note: This sample uses restricted capabilites that will probably prevent your app from being accepted in the Windows Store**
 
-**Note: This example will only work in Desktop scenarios**
+**Note: This sample will only work in Desktop scenarios**
 
 This sample demonstrates how to record and playback audio from a background task with unrestricted runtime and capabilites.
 
@@ -36,5 +36,5 @@ This sample demonstrates how to record and playback audio from a background task
 
 
 
-##  Setup Instructions
+##  Setup Instructions (How to reproduce this sample)
 

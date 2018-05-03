@@ -34,10 +34,8 @@ namespace StartAudioInTheBackground
     sealed partial class App : Application
     {
         private SuspendingDeferral m_suspendDeferral = null;
-        private ExtendedExecutionSession m_session = null;
         private ExtendedExecutionForegroundSession m_mediaSession = null;
         private BackgroundTaskDeferral m_deferral = null;
-        private bool startedInbackground = false;
         private Audio.AudioOutput m_audioOutput;
         private Audio.AudioInput m_audioInput;
 
@@ -70,7 +68,6 @@ namespace StartAudioInTheBackground
                 return;
             }
 
-            startedInbackground = true;
             base.OnBackgroundActivated(args);
             m_deferral = args.TaskInstance.GetDeferral();
             args.TaskInstance.Canceled += TaskInstance_Canceled;
@@ -141,7 +138,6 @@ namespace StartAudioInTheBackground
         /// <param name="e">Details about the launch request and process.</param>
         protected override void OnLaunched(LaunchActivatedEventArgs e)
         {
-            startedInbackground = false;
             Frame rootFrame = Window.Current.Content as Frame;
 
             // Do not repeat app initialization when the Window already has content,

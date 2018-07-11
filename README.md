@@ -11,7 +11,7 @@ This sample demonstrates how to record and playback audio from a background task
 ## Requirements
 
 * Visual Studio 2017 with Windows Universal App Development package installed
-* Windows SDK version 17025 (installed with Visual Studio 2017) or minimum SDK version 15063
+* Windows SDK version 17134 (installed with Visual Studio 2017) or minimum SDK version 15063
 
 ## Running the Sample
 

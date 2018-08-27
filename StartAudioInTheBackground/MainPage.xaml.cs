@@ -40,8 +40,10 @@ namespace StartAudioInTheBackground
             base.OnNavigatedTo(e);
             bool permissionGained = await Speech.AudioCapturePermissions.RequestMicrophonePermission();
 
-            Utils.BackGroundTask.RegisterSystemBackgroundTask(UserPresentTaskName, SystemTriggerType.UserPresent);
-            Utils.BackGroundTask.RegisterSystemBackgroundTask(UserAwayTaskName, SystemTriggerType.UserAway);
+            // these are no longer needed
+            Utils.BackGroundTask.UnregisterBackgroundTask(UserPresentTaskName);
+            Utils.BackGroundTask.UnregisterBackgroundTask(UserAwayTaskName);
+
             Utils.BackGroundTask.RegisterSystemBackgroundTask(SessionConnectedTaskName, SystemTriggerType.SessionConnected);
             await Utils.BackGroundTask.TriggerApplicationBackgroundTask("applicationBackgroundTask");
         }

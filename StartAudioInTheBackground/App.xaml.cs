@@ -33,7 +33,6 @@ namespace StartAudioInTheBackground
     /// </summary>
     sealed partial class App : Application
     {
-        private SuspendingDeferral m_suspendDeferral = null;
         private ExtendedExecutionForegroundSession m_mediaSession = null;
         private BackgroundTaskDeferral m_deferral = null;
         private Audio.AudioOutput m_audioOutput;
@@ -136,8 +135,16 @@ namespace StartAudioInTheBackground
         /// will be used such as when the application is launched to open a specific file.
         /// </summary>
         /// <param name="e">Details about the launch request and process.</param>
-        protected override void OnLaunched(LaunchActivatedEventArgs e)
+        protected override async void OnLaunched(LaunchActivatedEventArgs e)
         {
+            if (e.Kind == ActivationKind.Launch && e.Arguments == "/Exit")
+            {
+                Utils.BackGroundTask.UnregisterBackgroundTask("applicationBackgroundTask");
+                await Utils.JumpListMenu.Clear();
+                Application.Current.Exit();
+                return;
+            }
+
             Frame rootFrame = Window.Current.Content as Frame;
 
             // Do not repeat app initialization when the Window already has content,
@@ -189,14 +196,16 @@ namespace StartAudioInTheBackground
         /// </summary>
         /// <param name="sender">The source of the suspend request.</param>
         /// <param name="e">Details about the suspend request.</param>
-        private async void OnSuspending(object sender, SuspendingEventArgs e)
+        private void OnSuspending(object sender, SuspendingEventArgs e)
         {
-            //Toasts.ShowToast("OnSuspending");
-            m_suspendDeferral = e.SuspendingOperation.GetDeferral();
+            // uncomment this code to restart the recording background task on app exit
+#if false
+            var suspendDeferral = e.SuspendingOperation.GetDeferral();
             var appTrigger = new ApplicationTrigger();
             var requestStatus = await Windows.ApplicationModel.Background.BackgroundExecutionManager.RequestAccessAsync();
             await Utils.BackGroundTask.TriggerApplicationBackgroundTask("applicationBackgroundTask");
-            m_suspendDeferral.Complete();
+            suspendDeferral.Complete();
+#endif
         }
 
         private void Session_Revoked(object sender, ExtendedExecutionRevokedEventArgs args)

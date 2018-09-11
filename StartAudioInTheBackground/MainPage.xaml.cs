@@ -93,5 +93,12 @@ namespace StartAudioInTheBackground
                 recordButton.Content = "Stop";
             }
         }
+
+        private async void Exit_Click(Windows.UI.Xaml.Documents.Hyperlink sender, Windows.UI.Xaml.Documents.HyperlinkClickEventArgs args)
+        {
+            Utils.BackGroundTask.UnregisterBackgroundTask("applicationBackgroundTask");
+            await Utils.JumpListMenu.Clear();
+            Application.Current.Exit();
+        }
     }
 }

@@ -1,30 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
-using Windows.ApplicationModel.Background;
-using Windows.ApplicationModel.ExtendedExecution;
-using Windows.ApplicationModel.ExtendedExecution.Foreground;
-using Windows.Data.Xml.Dom;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-using Windows.Media;
-using Windows.Media.Core;
-using Windows.Media.Playback;
-using Windows.UI.Notifications;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
-using Utils;
 
 namespace StartAudioInTheBackground
 {
@@ -33,11 +14,6 @@ namespace StartAudioInTheBackground
     /// </summary>
     sealed partial class App : Application
     {
-        private ExtendedExecutionForegroundSession m_mediaSession = null;
-        private BackgroundTaskDeferral m_deferral = null;
-        private Audio.AudioOutput m_audioOutput;
-        private Audio.AudioInput m_audioInput;
-
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
         /// executed, and as such is the logical equivalent of main() or WinMain().
@@ -48,87 +24,6 @@ namespace StartAudioInTheBackground
             this.Suspending += OnSuspending;
         }
 
-        protected async override void OnBackgroundActivated(BackgroundActivatedEventArgs args)
-        {
-            var name = args.TaskInstance.Task.Name;
-
-            Toasts.ShowToast("OnBackgroundActivated: " + name);
-
-            StopRecording();
-
-            if (m_deferral != null)
-            {
-                m_deferral.Complete();
-                m_deferral = null;
-            }
-
-            if (name == "userAwayTrigger")
-            {
-                return;
-            }
-
-            base.OnBackgroundActivated(args);
-            m_deferral = args.TaskInstance.GetDeferral();
-            args.TaskInstance.Canceled += TaskInstance_Canceled;
-
-            m_mediaSession = new ExtendedExecutionForegroundSession();
-            m_mediaSession.Reason = ExtendedExecutionForegroundReason.Unconstrained;
-            m_mediaSession.Revoked += MediaSession_Revoked;
-            var result = await m_mediaSession.RequestExtensionAsync();
-            if (result != ExtendedExecutionForegroundResult.Allowed)
-            {
-                Toasts.ShowToast("Audio EE denied");
-            }
-
-            await StartRecording();
-        }
-
-        public async Task StartRecording()
-        {
-            StopRecording();
-
-            m_audioOutput = new Audio.AudioOutput();
-            m_audioInput = new Audio.AudioInput();
-            m_audioInput.OnAudioInput += OnAudioInput;
-            await m_audioOutput.Start();
-            await m_audioInput.Start();
-        }
-
-        public void StopRecording()
-        {
-            if (m_audioInput != null)
-            {
-                m_audioInput.Stop();
-                m_audioInput = null;
-            }
-
-            if (m_audioOutput != null)
-            {
-                m_audioOutput.Stop();
-                m_audioOutput = null;
-            }
-        }
- 
-        private void OnAudioInput(NAudio.Wave.IWaveBuffer data)
-        {
-            if(m_audioOutput != null)
-            {
-                m_audioOutput.Send(data.ByteBuffer);
-            }
-        }
-
-        private void TaskInstance_Canceled(IBackgroundTaskInstance sender, BackgroundTaskCancellationReason reason)
-        {
-            StopRecording();
-            m_deferral.Complete();
-            ///Toasts.ShowToast("TaskInstance_Canceled");
-        }
-
-        private void MediaSession_Revoked(object sender, ExtendedExecutionForegroundRevokedEventArgs args)
-        {
-            StopRecording();
-            //Toasts.ShowToast("Audio EE revoked");
-        }
 
         /// <summary>
         /// Invoked when the application is launched normally by the end user.  Other entry points
@@ -137,15 +32,21 @@ namespace StartAudioInTheBackground
         /// <param name="e">Details about the launch request and process.</param>
         protected override async void OnLaunched(LaunchActivatedEventArgs e)
         {
+            Frame rootFrame = Window.Current.Content as Frame;
+
             if (e.Kind == ActivationKind.Launch && e.Arguments == "/Exit")
             {
-                Utils.BackGroundTask.UnregisterBackgroundTask("applicationBackgroundTask");
-                await Utils.JumpListMenu.Clear();
-                Application.Current.Exit();
+
+                if (rootFrame != null)
+                {
+                    var page = rootFrame.Content as MainPage;
+                    if (page != null)
+                    {
+                        await page.ExitApp();
+                    }
+                }
                 return;
             }
-
-            Frame rootFrame = Window.Current.Content as Frame;
 
             // Do not repeat app initialization when the Window already has content,
             // just ensure that the window is active
@@ -198,19 +99,8 @@ namespace StartAudioInTheBackground
         /// <param name="e">Details about the suspend request.</param>
         private void OnSuspending(object sender, SuspendingEventArgs e)
         {
-            // uncomment this code to restart the recording background task on app exit
-#if false
             var suspendDeferral = e.SuspendingOperation.GetDeferral();
-            var appTrigger = new ApplicationTrigger();
-            var requestStatus = await Windows.ApplicationModel.Background.BackgroundExecutionManager.RequestAccessAsync();
-            await Utils.BackGroundTask.TriggerApplicationBackgroundTask("applicationBackgroundTask");
             suspendDeferral.Complete();
-#endif
-        }
-
-        private void Session_Revoked(object sender, ExtendedExecutionRevokedEventArgs args)
-        {
-            //Toasts.ShowToast("SavingData EE revoked");
         }
     }
 }

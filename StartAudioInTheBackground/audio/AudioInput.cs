@@ -152,7 +152,7 @@ namespace Audio
             }
             catch(Exception ex)
             {
-                Utils.Toasts.ShowToast("AudioInput Start Exception: " + ex.Message);
+                Utils.Toasts.ShowToast("","AudioInput Start Exception: " + ex.Message);
             }
 
             m_mutex.ReleaseMutex();

@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading;
+using System.Threading.Tasks;
+
 using Windows.ApplicationModel.Background;
+using Windows.ApplicationModel.ExtendedExecution;
+using Windows.ApplicationModel.ExtendedExecution.Foreground;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
-using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.System;
 using Windows.UI.Core.Preview;
@@ -29,10 +29,11 @@ namespace StartAudioInTheBackground
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        private string UserPresentTaskName = "userPresentTrigger";
-        private string UserAwayTaskName = "userAwayTrigger";
-        private string SessionConnectedTaskName = "sessionConnectedTrigger";
         private bool m_isRecording = false;
+        private Audio.AudioOutput m_audioOutput;
+        private Audio.AudioInput m_audioInput;
+        private ExtendedExecutionForegroundSession m_session = null;
+        private static Mutex m_mutex = new Mutex();
 
         public MainPage()
         {
@@ -44,16 +45,6 @@ namespace StartAudioInTheBackground
             base.OnNavigatedTo(e);
             bool permissionGained = await Speech.AudioCapturePermissions.RequestMicrophonePermission();
 
-            // these are no longer needed
-            Utils.BackGroundTask.UnregisterBackgroundTask(UserPresentTaskName);
-            Utils.BackGroundTask.UnregisterBackgroundTask(UserAwayTaskName);
-            Utils.BackGroundTask.UnregisterBackgroundTask(SessionConnectedTaskName);
-
-            //Utils.BackGroundTask.RegisterSystemBackgroundTask(SessionConnectedTaskName, SystemTriggerType.SessionConnected);
-
-            // start the recording task
-            //await Utils.BackGroundTask.TriggerApplicationBackgroundTask("applicationBackgroundTask");
-
             await Utils.JumpListMenu.Clear();
             await Utils.JumpListMenu.Add("/Exit", "Exit Application", "ms-appx:///Assets/Square44x44Logo.altform-unplated_targetsize-256.png");
 
@@ -61,44 +52,125 @@ namespace StartAudioInTheBackground
         }
 
         // prevents the windows from being close by the user until they select the Exit option
-        public void OnCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs args)
+        public async void OnCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs args)
         {
-            args.Handled = true;
+            // If the ExtendedExecutionForegroundSession is active, don't allow the app to exit unless the user wants it to exit.
+            if (m_session != null)
+            {
+                var deferral = args.GetDeferral();
 
-            // Minimize the app window
-            InputInjector inputInjector = InputInjector.TryCreate();
-            var windowsKey = new InjectedInputKeyboardInfo();
-            windowsKey.VirtualKey = (ushort)VirtualKey.LeftWindows;
-            var downKey = new InjectedInputKeyboardInfo();
-            downKey.VirtualKey = (ushort)VirtualKey.Down;
-            inputInjector.InjectKeyboardInput(new[] { windowsKey, downKey });
-            windowsKey.KeyOptions = InjectedInputKeyOptions.KeyUp;
-            downKey.KeyOptions = InjectedInputKeyOptions.KeyUp;
-            inputInjector.InjectKeyboardInput(new[] { windowsKey, downKey });
+                CloseAppDialog dialog = new CloseAppDialog();
+                var result = await dialog.ShowAsync();
+
+                if (result == ContentDialogResult.Primary)
+                {
+                    args.Handled = true;
+                    Utils.KeyboardInput.MinimizeApp();
+                }
+                else
+                {
+                    args.Handled = false;
+                    await ExitApp();
+                }
+
+                deferral.Complete();
+            }
         }
 
         private async void RecordButton_Click(object sender, RoutedEventArgs e)
         {
             if(m_isRecording)
             {
-                Utils.BackGroundTask.UnregisterBackgroundTask("applicationBackgroundTask");
                 m_isRecording = false;
                 recordButton.Content = "Record";
+                StopRecording();  
             }
             else
             {
                 // start the recording task
-                await Utils.BackGroundTask.TriggerApplicationBackgroundTask("applicationBackgroundTask");
                 m_isRecording = true;
                 recordButton.Content = "Stop";
+                await StartRecording();
+            }
+        }
+
+        public async Task StartRecording()
+        {
+            StopRecording();
+
+            m_session = new ExtendedExecutionForegroundSession();
+            m_session.Reason = ExtendedExecutionForegroundReason.Unconstrained;
+            m_session.Revoked += Session_Revoked;
+            var result = await m_session.RequestExtensionAsync();
+            if (result != ExtendedExecutionForegroundResult.Allowed)
+            {
+                Utils.Toasts.ShowToast("StartAudioInTheBackground", "Audio EE denied");
+                return;
+            }
+
+            m_audioOutput = new Audio.AudioOutput();
+            m_audioInput = new Audio.AudioInput();
+            m_audioInput.OnAudioInput += OnAudioInput;
+            await m_audioOutput.Start();
+            await m_audioInput.Start();
+        }
+
+        public void StopRecording()
+        {
+            if (m_audioInput != null)
+            {
+                m_audioInput.Stop();
+                m_audioInput = null;
+            }
+
+            if (m_audioOutput != null)
+            {
+                m_audioOutput.Stop();
+                m_audioOutput = null;
+            }
+
+            ClearExtendedExecution();
+        }
+
+        private void OnAudioInput(NAudio.Wave.IWaveBuffer data)
+        {
+            if (m_audioOutput != null)
+            {
+                // send recorded audio to speakers
+                m_audioOutput.Send(data.ByteBuffer);
             }
         }
 
         private async void Exit_Click(Windows.UI.Xaml.Documents.Hyperlink sender, Windows.UI.Xaml.Documents.HyperlinkClickEventArgs args)
         {
-            Utils.BackGroundTask.UnregisterBackgroundTask("applicationBackgroundTask");
+            await ExitApp();
+        }
+
+        public async Task ExitApp()
+        {
+            StopRecording();
+            ClearExtendedExecution();
             await Utils.JumpListMenu.Clear();
-            Application.Current.Exit();
+            Utils.KeyboardInput.CloseApp();
+        }
+
+        private void ClearExtendedExecution()
+        {
+            m_mutex.WaitOne();
+            if (m_session != null)
+            {
+                m_session.Revoked -= Session_Revoked;
+                m_session.Dispose();
+                m_session = null;
+            }
+
+            m_mutex.ReleaseMutex();
+        }
+
+        private void Session_Revoked(object sender, ExtendedExecutionForegroundRevokedEventArgs args)
+        {
+            ClearExtendedExecution();
+            Utils.Toasts.ShowToast("StartAudioInTheBackground", "Session_Revoked. Reason: " + args.Reason.ToString());
         }
     }
 }

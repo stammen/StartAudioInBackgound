@@ -28,7 +28,7 @@ namespace Utils
         {
             var jumpList = await JumpList.LoadCurrentAsync();
             var taskItem = JumpListItem.CreateWithArguments(argument, description);
-            taskItem.Description = "Exit Alexa";
+            taskItem.Description = "Exit application";
             taskItem.Logo = new Uri(image);
             jumpList.Items.Add(taskItem);
             await jumpList.SaveAsync();

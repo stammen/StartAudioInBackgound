@@ -35,11 +35,18 @@ namespace StartAudioInTheBackground
         private ExtendedExecutionForegroundSession m_session = null;
         private static Mutex m_mutex = new Mutex();
 
+        private bool isActive;
+
         public MainPage()
         {
             this.InitializeComponent();
             Loaded += OnLoaded;
+            Window.Current.Activated += (e, e2) =>
+            {
+                isActive = e2.WindowActivationState != Windows.UI.Core.CoreWindowActivationState.Deactivated;
+            };
         }
+
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
@@ -75,10 +82,13 @@ namespace StartAudioInTheBackground
             {
                 var deferral = args.GetDeferral();
 
-                CloseAppDialog dialog = new CloseAppDialog();
-                var result = await dialog.ShowAsync();
+                //CloseAppDialog dialog = new CloseAppDialog();
+                //var result = await dialog.ShowAsync();
+                //var minimize = result == ContentDialogResult.Primary;
 
-                if (result == ContentDialogResult.Primary)
+                var minimize = isActive;
+
+                if (minimize)
                 {
                     args.Handled = true;
                     Utils.KeyboardInput.MinimizeApp();

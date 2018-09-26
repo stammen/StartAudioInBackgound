@@ -44,10 +44,25 @@ namespace StartAudioInTheBackground
         {
             base.OnNavigatedTo(e);
             bool permissionGained = await Speech.AudioCapturePermissions.RequestMicrophonePermission();
+            if (!permissionGained)
+            {
+                var dialog = new MicPermissionDialog();
+                var result = await dialog.ShowAsync();
+
+                if (result == ContentDialogResult.Primary)
+                {
+                    await Launcher.LaunchUriAsync(new Uri("ms-settings:privacy-microphone"));
+                }
+
+                Application.Current.Exit();
+
+                return;
+            }
 
             await Utils.JumpListMenu.Clear();
             await Utils.JumpListMenu.Add("/Exit", "Exit Application", "ms-appx:///Assets/Square44x44Logo.altform-unplated_targetsize-256.png");
 
+            // override close baehavior when user attempts to close the app while we are recording
             SystemNavigationManagerPreview.GetForCurrentView().CloseRequested += OnCloseRequested;
         }
 

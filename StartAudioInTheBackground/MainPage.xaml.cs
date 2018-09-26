@@ -11,7 +11,7 @@ using Windows.Foundation.Collections;
 using Windows.Media.Playback;
 using Windows.System;
 using Windows.UI.Core.Preview;
-using Windows.UI.Input.Preview.Injection;
+using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
@@ -38,6 +38,7 @@ namespace StartAudioInTheBackground
         public MainPage()
         {
             this.InitializeComponent();
+            Loaded += OnLoaded;
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -90,6 +91,12 @@ namespace StartAudioInTheBackground
 
                 deferral.Complete();
             }
+        }
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            var result = ApplicationView.GetForCurrentView().TryResizeView(new Size(500, 700));
+            Debug.WriteLine("OnLoaded TryResizeView: " + result);
         }
 
         private async void RecordButton_Click(object sender, RoutedEventArgs e)

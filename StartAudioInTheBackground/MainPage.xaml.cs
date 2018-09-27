@@ -30,20 +30,28 @@ namespace StartAudioInTheBackground
     public sealed partial class MainPage : Page
     {
         private bool m_isRecording = false;
+        private bool m_isWindowActivated = false;
         private Audio.AudioOutput m_audioOutput;
         private Audio.AudioInput m_audioInput;
         private ExtendedExecutionForegroundSession m_session = null;
         private static Mutex m_mutex = new Mutex();
 
-        private bool isActive;
-
         public MainPage()
         {
             this.InitializeComponent();
             Loaded += OnLoaded;
+
+            // Receive notification when our window is activated.
+            // If we are activated and CloseRequested is called, most likely user tried to close the window with the X in the Titlebar.
+            //      - In this case we will minimize the app if we are recording, otherwise we will allow the app to exit
+            // If we are not activated and CloseRequested is called, most likely user tried to close the window with the "Close Window" comand
+            // with the app's icon menu.
+            //      - In this case we will always allow the app to exit
+            // These scenarios are arbitrary. Feel free to adjust the behavior to suit the needs of your app.
             Window.Current.Activated += (e, e2) =>
             {
-                isActive = e2.WindowActivationState != Windows.UI.Core.CoreWindowActivationState.Deactivated;
+                m_isWindowActivated = e2.WindowActivationState != Windows.UI.Core.CoreWindowActivationState.Deactivated;
+                Debug.WriteLine("Window is Activated:" + m_isWindowActivated);
             };
         }
 
@@ -74,32 +82,30 @@ namespace StartAudioInTheBackground
             SystemNavigationManagerPreview.GetForCurrentView().CloseRequested += OnCloseRequested;
         }
 
-        // prevents the windows from being close by the user until they select the Exit option
+        // If we are activated and CloseRequested is called, most likely user tried to close the window with the X in the Titlebar.
+        //      - In this case we will minimize the app if we are recording, otherwise we will allow the app to exit
+        // If we are not activated and CloseRequested is called, most likely user tried to close the window with the "Close Window" comand
+        // with the app's icon menu.
+        //      - In this case we will always allow the app to exit
+        // These scenarios are arbitrary. Feel free to adjust the behavior to suit the needs of your app.
+        // You can also use a dialog to ask the user if they want to exit the app. For example
+        //      CloseAppDialog dialog = new CloseAppDialog();
+        //      var result = await dialog.ShowAsync();
+        //      var minimize = result == ContentDialogResult.Primary;
         public async void OnCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs args)
         {
             // If the ExtendedExecutionForegroundSession is active, don't allow the app to exit unless the user wants it to exit.
-            if (m_session != null)
+            if (m_session != null && m_isWindowActivated)
             {
                 var deferral = args.GetDeferral();
-
-                //CloseAppDialog dialog = new CloseAppDialog();
-                //var result = await dialog.ShowAsync();
-                //var minimize = result == ContentDialogResult.Primary;
-
-                var minimize = isActive;
-
-                if (minimize)
-                {
-                    args.Handled = true;
-                    Utils.KeyboardInput.MinimizeApp();
-                }
-                else
-                {
-                    args.Handled = false;
-                    await ExitApp();
-                }
-
+                args.Handled = true;
+                Utils.KeyboardInput.MinimizeApp();
                 deferral.Complete();
+            }
+            else
+            {
+                args.Handled = false;
+                await ExitApp();
             }
         }
 
@@ -183,7 +189,14 @@ namespace StartAudioInTheBackground
             StopRecording();
             ClearExtendedExecution();
             await Utils.JumpListMenu.Clear();
-            Utils.KeyboardInput.CloseApp();
+            if (m_isWindowActivated) // window needs to be activated to receive keyboard commands
+            {
+                Utils.KeyboardInput.CloseApp();
+            }
+            else
+            {
+                Application.Current.Exit();
+            }
         }
 
         private void ClearExtendedExecution()

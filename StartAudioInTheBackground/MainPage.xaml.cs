@@ -146,10 +146,9 @@ namespace StartAudioInTheBackground
                 return;
             }
 
-            m_audioOutput = new Audio.AudioOutput();
+            //m_audioOutput = new Audio.AudioOutput();
             m_audioInput = new Audio.AudioInput();
-            m_audioInput.OnAudioInput += OnAudioInput;
-            await m_audioOutput.Start();
+            //await m_audioOutput.Start();
             await m_audioInput.Start();
         }
 

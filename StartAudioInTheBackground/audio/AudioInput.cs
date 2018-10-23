@@ -126,7 +126,7 @@ namespace Audio
 
                 m_audioGraph = result.Graph;
 
-                var pcmEncoding = AudioEncodingProperties.CreatePcm(16000, 1, 16);
+                var pcmEncoding = AudioEncodingProperties.CreatePcm(16000, 1, 32);
                 m_frameOutputNode = m_audioGraph.CreateFrameOutputNode(pcmEncoding);
                 var encodingProperties = m_frameOutputNode.EncodingProperties;
                 encodingProperties = m_audioGraph.EncodingProperties;
@@ -140,6 +140,7 @@ namespace Audio
                 m_deviceInputNode = inputResult.DeviceInputNode;
                 m_deviceInputNode.AddOutgoingConnection(m_frameOutputNode);
                 m_audioGraph.QuantumStarted += node_QuantumStarted;
+                encodingProperties = m_audioGraph.EncodingProperties;
                 m_audioGraph.Start();
 
             }

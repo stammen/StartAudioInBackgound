@@ -111,22 +111,12 @@ namespace Audio
             {
                 m_mutex.WaitOne();
 
-                DeviceInformationCollection devices = await DeviceInformation.FindAllAsync(MediaDevice.GetAudioCaptureSelector());
-                while (devices.Count == 0)
-                {
-                    await Task.Delay(2000);
-                    devices = await DeviceInformation.FindAllAsync(MediaDevice.GetAudioCaptureSelector());
-                }
-
-                var pcmEncoding = AudioEncodingProperties.CreatePcm(16000, 1, 16);
-
-                // Construct the audio graph
+                  // Construct the audio graph
                 var result = await AudioGraph.CreateAsync(
                     new AudioGraphSettings(AudioRenderCategory.Speech)
                     {
                         DesiredRenderDeviceAudioProcessing = AudioProcessing.Raw,
-                        AudioRenderCategory = AudioRenderCategory.Speech,
-                        EncodingProperties = pcmEncoding
+                        AudioRenderCategory = AudioRenderCategory.Speech
                     });
 
                 if (result.Status != AudioGraphCreationStatus.Success)
@@ -136,7 +126,10 @@ namespace Audio
 
                 m_audioGraph = result.Graph;
 
+                var pcmEncoding = AudioEncodingProperties.CreatePcm(16000, 1, 16);
                 m_frameOutputNode = m_audioGraph.CreateFrameOutputNode(pcmEncoding);
+                var encodingProperties = m_frameOutputNode.EncodingProperties;
+                encodingProperties = m_audioGraph.EncodingProperties;
 
                 var inputResult = await m_audioGraph.CreateDeviceInputNodeAsync(MediaCategory.Speech, pcmEncoding);
                 if (inputResult.Status != AudioDeviceNodeCreationStatus.Success)

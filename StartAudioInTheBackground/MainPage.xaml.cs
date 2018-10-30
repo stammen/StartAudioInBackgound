@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -99,8 +100,10 @@ namespace StartAudioInTheBackground
             {
                 var deferral = args.GetDeferral();
                 args.Handled = true;
-                Utils.KeyboardInput.MinimizeApp();
                 deferral.Complete();
+                IList<AppDiagnosticInfo> infos = await AppDiagnosticInfo.RequestInfoForAppAsync();
+                IList<AppResourceGroupInfo> resourceInfos = infos[0].GetResourceGroups();
+                await resourceInfos[0].StartSuspendAsync();
             }
             else
             {
@@ -189,14 +192,9 @@ namespace StartAudioInTheBackground
             StopRecording();
             ClearExtendedExecution();
             await Utils.JumpListMenu.Clear();
-            if (m_isWindowActivated) // window needs to be activated to receive keyboard commands
-            {
-                Utils.KeyboardInput.CloseApp();
-            }
-            else
-            {
-                Application.Current.Exit();
-            }
+            IList<AppDiagnosticInfo> infos = await AppDiagnosticInfo.RequestInfoForAppAsync();
+            IList<AppResourceGroupInfo> resourceInfos = infos[0].GetResourceGroups();
+            await resourceInfos[0].StartTerminateAsync();
         }
 
         private void ClearExtendedExecution()

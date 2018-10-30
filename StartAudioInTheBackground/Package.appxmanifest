@@ -27,7 +27,6 @@
     <rescap:Capability Name="extendedExecutionUnconstrained" />
     <rescap:Capability Name="extendedBackgroundTaskTime" />
     <rescap:Capability Name="confirmAppClose" />
-    <rescap:Capability Name="inputInjectionBrokered" />
     <DeviceCapability Name="microphone" />
   </Capabilities>
 </Package>

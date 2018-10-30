@@ -95,21 +95,25 @@ namespace StartAudioInTheBackground
         //      var minimize = result == ContentDialogResult.Primary;
         public async void OnCloseRequested(object sender, SystemNavigationCloseRequestedPreviewEventArgs args)
         {
+            var deferral = args.GetDeferral();
+
             // If the ExtendedExecutionForegroundSession is active, don't allow the app to exit unless the user wants it to exit.
             if (m_session != null && m_isWindowActivated)
             {
-                var deferral = args.GetDeferral();
                 args.Handled = true;
-                deferral.Complete();
+
                 IList<AppDiagnosticInfo> infos = await AppDiagnosticInfo.RequestInfoForAppAsync();
                 IList<AppResourceGroupInfo> resourceInfos = infos[0].GetResourceGroups();
-                await resourceInfos[0].StartSuspendAsync();
+                await resourceInfos[0].StartSuspendAsync(); // minimize the app. App will keep running due to the ExtendedSession
             }
             else
             {
                 args.Handled = false;
                 await ExitApp();
             }
+
+            deferral.Complete();
+            deferral = null;
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
@@ -194,7 +198,7 @@ namespace StartAudioInTheBackground
             await Utils.JumpListMenu.Clear();
             IList<AppDiagnosticInfo> infos = await AppDiagnosticInfo.RequestInfoForAppAsync();
             IList<AppResourceGroupInfo> resourceInfos = infos[0].GetResourceGroups();
-            await resourceInfos[0].StartTerminateAsync();
+            await resourceInfos[0].StartTerminateAsync(); // terminate the app
         }
 
         private void ClearExtendedExecution()
